@@ -7,9 +7,12 @@ import pinoHttp from 'pino-http';
 import { config } from './config/env.js';
 import { OpportunityService } from './services/opportunityService.js';
 import { opportunityRoutes } from './routes/opportunities.js';
+import { adminRoutes } from './routes/admin.js';
+import { AdminOpportunityService } from './services/adminOpportunityService.js';
+import { createAuth } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
-export function createApp({ opportunityRepo, logger } = {}) {
+export function createApp({ opportunityRepo, authVerifier, logger } = {}) {
   const log =
     logger ||
     pino({
@@ -30,7 +33,8 @@ export function createApp({ opportunityRepo, logger } = {}) {
         if (!origin || config.corsOrigins.includes(origin)) return cb(null, true);
         return cb(null, false);
       },
-      methods: ['GET', 'HEAD', 'OPTIONS'],
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
   app.use(express.json({ limit: '100kb' }));
@@ -51,6 +55,17 @@ export function createApp({ opportunityRepo, logger } = {}) {
 
   const service = new OpportunityService(opportunityRepo);
   app.use('/api/v1/opportunities', opportunityRoutes(service));
+
+  if (authVerifier) {
+    const adminService = new AdminOpportunityService(opportunityRepo);
+    app.use('/api/v1/admin', adminRoutes(adminService, createAuth(authVerifier)));
+  } else {
+    app.use('/api/v1/admin', (_req, res) =>
+      res.status(503).json({
+        error: { code: 'ADMIN_UNAVAILABLE', message: 'Admin API needs Firebase Auth (use DATA_STORE=firestore).' },
+      }),
+    );
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -13,7 +13,10 @@ export class OpportunityService {
   async listPublic(rawQuery) {
     const params = listQuerySchema.parse(rawQuery);
     const { items, nextCursor } = await this.repo.list(buildPlan(params));
-    return { items: items.map(toPublic), nextCursor };
+    // Safety net: hide listings whose deadline passed since they were last saved.
+    const now = new Date();
+    const live = items.filter((d) => !(d.deadline && new Date(d.deadline) < now));
+    return { items: live.map(toPublic), nextCursor };
   }
 
   // A published listing stays viewable after it expires (useful for shared links);

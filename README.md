@@ -181,3 +181,36 @@ unpublished listings return 404 on detail.
 - [ ] `DATA_STORE=firestore`, `npm run seed` succeeds and documents appear in the Firestore console
 - [ ] Rules and indexes deployed; the same API calls work against Firestore (report any index errors to me)
 - [ ] `git init`, first commit made, and `git status` shows `.env` and `secrets\` are not tracked
+
+---
+
+# Milestone 2 (part 1): Admin authentication + admin API
+
+Admin endpoints live under `/api/v1/admin/*` and need `Authorization: Bearer <Firebase ID token>`.
+The server checks the token with Firebase Admin and requires the custom claim `role = "admin"`.
+That claim can only be set by `npm run set-admin` (server side, with the service account), so
+nobody can become admin by changing frontend code or sending custom requests.
+
+| Method + path | What it does |
+|---|---|
+| `GET /admin/opportunities?status=&type=&limit=&cursor=` | List every listing (any status), newest edits first |
+| `POST /admin/opportunities` | Create a listing (always an unverified draft). Response includes `duplicates` |
+| `GET /admin/opportunities/:id` | Full listing incl. verification notes |
+| `PUT /admin/opportunities/:id` | Replace the editable fields. Real content changes reset verification and take a published listing offline |
+| `DELETE /admin/opportunities/:id` | Delete (history is kept) |
+| `POST /admin/opportunities/:id/submit` | draft/rejected/unpublished -> in_review |
+| `POST /admin/opportunities/:id/review` | `approve` (needs notes + 3 confirmed checks) or `reject` (needs notes) |
+| `POST /admin/opportunities/:id/publish` | Only if verified and not expired |
+| `POST /admin/opportunities/:id/unpublish` | published -> unpublished |
+| `POST /admin/opportunities/:id/expire` | Mark expired (hidden from students) |
+| `GET /admin/opportunities/:id/history` | Audit trail (who did what, when, notes) |
+| `POST /admin/maintenance/expire-overdue` | Mark published listings with a passed deadline as expired |
+
+Rules enforced by the server: a listing cannot be published unless it is verified; "verified" is only
+set by an approval where the admin confirms `sourceVerified`, `applyLinkWorks` and `noApplicantFee`;
+every action is stored in the `adminReviews` collection.
+
+Admin setup steps (Firebase console and terminal) are given in the chat, one at a time.
+
+Not in this part yet: admin dashboard screens (React), user reports, categories, analytics.
+Those come next in Milestone 2 / 3.

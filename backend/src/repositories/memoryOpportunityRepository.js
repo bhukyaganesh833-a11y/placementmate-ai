@@ -7,6 +7,7 @@ import { encodeCursor, passesPostFilters } from '../models/listQuery.js';
 export class MemoryOpportunityRepository {
   constructor() {
     this.docs = new Map();
+    this.auditLog = [];
   }
 
   async create(doc) {
@@ -18,6 +19,36 @@ export class MemoryOpportunityRepository {
 
   async getById(id) {
     return this.docs.get(id) || null;
+  }
+
+  // Replace the whole document (derived fields are recomputed).
+  async save(doc) {
+    const stored = deriveFields(doc);
+    this.docs.set(stored.id, stored);
+    return stored;
+  }
+
+  async delete(id) {
+    return this.docs.delete(id);
+  }
+
+  async findByApplyUrlKey(key) {
+    return [...this.docs.values()].filter((d) => d.applyUrlKey === key).slice(0, 10);
+  }
+
+  async addAudit(record) {
+    const entry = { id: randomUUID().replace(/-/g, '').slice(0, 20), ...record };
+    this.auditLog.push(entry);
+    return entry;
+  }
+
+  // Newest first.
+  async listAudit(opportunityId, limit = 50) {
+    return this.auditLog
+      .filter((a) => a.opportunityId === opportunityId)
+      .reverse()
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+      .slice(0, limit);
   }
 
   async list(plan) {

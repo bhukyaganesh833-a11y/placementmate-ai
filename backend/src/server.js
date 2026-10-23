@@ -13,7 +13,14 @@ if (config.DATA_STORE === 'memory' && config.NODE_ENV === 'development') {
   logger.warn('Loaded SAMPLE data into the in-memory store (not real listings)');
 }
 
-const app = createApp({ opportunityRepo, logger });
+// Admin API is only enabled when Firebase Auth can verify tokens.
+let authVerifier;
+if (config.DATA_STORE === 'firestore') {
+  const { createFirebaseAuthVerifier } = await import('./services/authVerifier.js');
+  authVerifier = createFirebaseAuthVerifier();
+}
+
+const app = createApp({ opportunityRepo, authVerifier, logger });
 
 const server = app.listen(config.PORT, () => {
   logger.info({ port: config.PORT, store: config.DATA_STORE, env: config.NODE_ENV }, 'PlacementMate API listening');

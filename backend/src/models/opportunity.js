@@ -112,6 +112,7 @@ export function deriveFields(doc) {
     isExpired: doc.isExpired || expiredByDate,
     isPublic: doc.publicationStatus === 'published' && !(doc.isExpired || expiredByDate),
     isPaid: doc.compensation?.kind === 'paid',
+    applyUrlKey: normalizeUrlKey(doc.applyUrl),
     deadlineSort: doc.deadline || NO_DEADLINE_SORT_VALUE,
     locationLower: doc.location ? doc.location.toLowerCase() : null,
     organizationLower: doc.organization.toLowerCase(),
@@ -120,9 +121,8 @@ export function deriveFields(doc) {
   };
 }
 
-// Fields that must never leave the server.
-const PRIVATE_FIELDS = [
-  'verificationNotes',
+// Helper fields we compute for queries. Nobody needs to see them.
+const DERIVED_FIELDS = [
   'isPublic',
   'isPaid',
   'deadlineSort',
@@ -130,10 +130,63 @@ const PRIVATE_FIELDS = [
   'organizationLower',
   'skillsLower',
   'searchTokens',
+  'applyUrlKey',
 ];
+
+// Fields that must never reach students (public API).
+const PRIVATE_FIELDS = ['verificationNotes', 'verifiedBy', ...DERIVED_FIELDS];
 
 export function toPublic(doc) {
   const out = { ...doc };
   for (const f of PRIVATE_FIELDS) delete out[f];
   return out;
+}
+
+// Admins see everything except the query helper fields.
+export function toAdmin(doc) {
+  const out = { ...doc };
+  for (const f of DERIVED_FIELDS) delete out[f];
+  return out;
+}
+
+// Same job link with tracking params / trailing slash / www => same key (duplicate detection).
+export function normalizeUrlKey(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(utm_|fbclid$|gclid$|ref$)/i.test(key)) url.searchParams.delete(key);
+    }
+    url.searchParams.sort();
+    const path = url.pathname.replace(/\/+$/, '');
+    return `${url.hostname.toLowerCase().replace(/^www\./, '')}${path}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+// The fields an admin edits (everything in the input schema).
+export const CONTENT_KEYS = Object.keys(opportunityInputSchema.shape);
+
+export function contentOf(obj) {
+  const out = {};
+  for (const k of CONTENT_KEYS) if (obj[k] !== undefined) out[k] = obj[k];
+  return out;
+}
+
+export function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+// Replace all editable fields of an existing document with a new validated input.
+export function withContent(existing, input) {
+  const base = { ...existing };
+  for (const k of CONTENT_KEYS) delete base[k];
+  return deriveFields({ ...base, ...input });
 }
