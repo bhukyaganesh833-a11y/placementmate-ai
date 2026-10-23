@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Milestone 1: ALL client access is denied. Website and Android talk only to our
+// Express API, which uses the Firebase Admin SDK (the Admin SDK bypasses these rules).
+// Milestone 5 adds narrow per-user rules (users/{uid}, saved, tracker) if clients
+// ever use the Firestore SDK directly.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
