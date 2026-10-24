@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import AuthBar from './AuthBar.jsx';
 
 const TYPES = ['', 'internship', 'job', 'hackathon', 'competition'];
 
@@ -35,6 +36,7 @@ export default function App() {
     <div style={{ maxWidth: 900, margin: '0 auto', padding: 16, textAlign: 'left' }}>
       <h1>PlacementMate</h1>
       <p>Verified internships, jobs, hackathons and competitions.</p>
+      <AuthBar />
 
       <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
         <input
