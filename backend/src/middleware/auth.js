@@ -12,7 +12,7 @@ export function createAuth(verifier) {
     verifier
       .verify(match[1])
       .then((decoded) => {
-        req.user = { uid: decoded.uid, email: decoded.email || null, role: decoded.role || null };
+        req.user = { uid: decoded.uid, email: decoded.email || null, role: decoded.role || null, plan: decoded.plan === 'premium' ? 'premium' : 'free' };
         next();
       })
       .catch(() => next(new HttpError(401, 'UNAUTHENTICATED', 'Invalid or expired token')));
@@ -28,5 +28,15 @@ export function createAuth(verifier) {
     });
   }
 
-  return { authenticate, requireAdmin };
+  function requirePremium(req, res, next) {
+    authenticate(req, res, (err) => {
+      if (err) return next(err);
+      if (req.user.plan !== 'premium' && req.user.role !== 'admin') {
+        return next(new HttpError(403, 'PREMIUM_REQUIRED', 'Premium plan required'));
+      }
+      next();
+    });
+  }
+
+  return { authenticate, requireAdmin, requirePremium };
 }

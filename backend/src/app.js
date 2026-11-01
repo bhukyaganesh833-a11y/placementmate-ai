@@ -58,7 +58,12 @@ export function createApp({ opportunityRepo, authVerifier, logger } = {}) {
 
   if (authVerifier) {
     const adminService = new AdminOpportunityService(opportunityRepo);
-    app.use('/api/v1/admin', adminRoutes(adminService, createAuth(authVerifier)));
+    const auth = createAuth(authVerifier);
+    app.use('/api/v1/admin', adminRoutes(adminService, auth));
+    app.get('/api/v1/me', auth.authenticate, (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      res.json({ data: { uid: req.user.uid, email: req.user.email, role: req.user.role, plan: req.user.plan } });
+    });
   } else {
     app.use('/api/v1/admin', (_req, res) =>
       res.status(503).json({

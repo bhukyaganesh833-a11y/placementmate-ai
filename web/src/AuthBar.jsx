@@ -6,6 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth } from './firebase.js';
+import PlanBadge from './PlanBadge.jsx';
 
 export default function AuthBar() {
   const [user, setUser] = useState(null);
@@ -33,6 +34,7 @@ export default function AuthBar() {
     return (
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '8px 0' }}>
         <span>Signed in as {user.email}</span>
+        <PlanBadge user={user} />
         <button onClick={() => signOut(auth)}>Sign out</button>
       </div>
     );
