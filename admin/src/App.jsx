@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, API_BASE } from './firebase.js';
+import AddListing from './AddListing.jsx';
 
 const ADMIN = `${API_BASE}/api/v1/admin/opportunities`;
 
@@ -12,6 +13,8 @@ export default function App() {
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
   const [busyId, setBusyId] = useState('');
+  const [status, setStatus] = useState('');
+  const [type, setType] = useState('');
 
   useEffect(() => onAuthStateChanged(auth, (u) => { setUser(u); setReady(true); }), []);
 
@@ -31,13 +34,17 @@ export default function App() {
 
   const loadItems = useCallback(async () => {
     try {
-      const json = await call('GET', '');
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (type) params.set('type', type);
+      const qs = params.toString();
+      const json = await call('GET', qs ? ('?' + qs) : '');
       setItems(json?.data || []);
       setError('');
     } catch (e) {
       setError(e.message);
     }
-  }, [call]);
+  }, [call, status, type]);
 
   useEffect(() => { if (user) loadItems(); }, [user, loadItems]);
 
@@ -50,6 +57,14 @@ export default function App() {
       setError(e.message);
     } finally {
       setBusyId('');
+    }
+  }
+
+  async function createListing(body) {
+    const json = await call('POST', '', body);
+    await loadItems();
+    if (json?.duplicates?.length) {
+      window.alert('Warning: ' + json.duplicates.length + ' listing(s) already use the same apply link.');
     }
   }
 
@@ -83,6 +98,24 @@ export default function App() {
         <h2>Listings</h2>
         <button onClick={() => signOut(auth)}>Sign out ({user.email})</button>
       </div>
+      <AddListing onCreate={createListing} />
+      <div style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All statuses</option>
+          <option value="published">published</option>
+          <option value="unpublished">unpublished</option>
+          <option value="draft">draft</option>
+          <option value="in_review">in_review</option>
+          <option value="rejected">rejected</option>
+        </select>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">All types</option>
+          <option value="internship">internship</option>
+          <option value="job">job</option>
+          <option value="hackathon">hackathon</option>
+          <option value="competition">competition</option>
+        </select>
+      </div>
       {error && <p style={{ color: 'crimson' }}>{error}</p>}
       {items.length === 0 && !error && <p>No listings yet.</p>}
       <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: 12 }}>
@@ -106,6 +139,18 @@ export default function App() {
                   }}
                 >
                   Approve
+                </button>
+              )}
+              {o.verificationStatus !== 'verified' && o.verificationStatus !== 'rejected' && (
+                <button
+                  disabled={busyId === o.id}
+                  onClick={() => {
+                    const notes = window.prompt('Reject reason?');
+                    if (!notes) return;
+                    act(o.id, 'review', { result: 'reject', notes });
+                  }}
+                >
+                  Reject
                 </button>
               )}
               {o.verificationStatus === 'verified' && o.publicationStatus !== 'published' && (
