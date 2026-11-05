@@ -1,3 +1,5 @@
+import { createResumeMatchService } from './services/resumeMatchService.js';
+import { resumeMatchRoutes } from './routes/resumeMatch.js';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -60,6 +62,7 @@ export function createApp({ opportunityRepo, authVerifier, logger } = {}) {
     const adminService = new AdminOpportunityService(opportunityRepo);
     const auth = createAuth(authVerifier);
     app.use('/api/v1/admin', adminRoutes(adminService, auth));
+    app.use('/api/v1', resumeMatchRoutes(createResumeMatchService({ apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.AI_MODEL || 'claude-haiku-5-5' }), auth));
     app.get('/api/v1/me', auth.authenticate, (req, res) => {
       res.set('Cache-Control', 'no-store');
       res.json({ data: { uid: req.user.uid, email: req.user.email, role: req.user.role, plan: req.user.plan } });
